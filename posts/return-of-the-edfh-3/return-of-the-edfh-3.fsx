@@ -254,7 +254,7 @@ module RleAdd =
     // A Rle is a list of chars and run-lengths
     type Rle = (char*int) list
 
-    let rec rleAdd (rle1:Rle) (rle2:Rle) =
+    let rec rleConcat (rle1:Rle) (rle2:Rle) =
         match rle1 with
         // 0 elements, so return rle2
         | [] -> rle2
@@ -274,20 +274,20 @@ module RleAdd =
 
         // longer than 1, so recurse
         | head::tail ->
-            head :: (rleAdd tail rle2)
+            head :: (rleConcat tail rle2)
 
 open RleAdd
 
-rleAdd ['a',1] ['a',1]  //=> [('a',2)]
-rleAdd ['a',1] ['b',1]  //=> [('a',1); ('b',1)]
+rleConcat ['a',1] ['a',1]  //=> [('a',2)]
+rleConcat ['a',1] ['b',1]  //=> [('a',1); ('b',1)]
 
 let rle1 = rle_recursive "aaabb"
 let rle2 = rle_recursive "bccc"
 let rle3 = rle_recursive ("aaabb" + "bccc")
-rle3 = rleAdd rle1 rle2   //=> true
+rle3 = rleConcat rle1 rle2   //=> true
 
-let propStructurePreserving (impl:RleImpl) (str1,str2) =
-    let ( <+> ) = rleAdd
+let propConcat (impl:RleImpl) (str1,str2) =
+    let ( <+> ) = rleConcat
 
     let rle1 = impl str1
     let rle2 = impl str2
@@ -301,7 +301,7 @@ let arbPixelsPair =
     |> Arb.fromGen
 
 do
-    let prop = Prop.forAll arbPixelsPair (propStructurePreserving rle_corrupted)
+    let prop = Prop.forAll arbPixelsPair (propConcat rle_corrupted)
 
     // check it thoroughly
     let config = { Config.Default with MaxTest=10000}
@@ -309,7 +309,7 @@ do
     // Falsifiable, after 2 tests
 
 do
-    let prop = Prop.forAll arbPixelsPair (propStructurePreserving rle_recursive)
+    let prop = Prop.forAll arbPixelsPair (propConcat rle_recursive)
 
     // check it thoroughly
     let config = { Config.Default with MaxTest=10000}
@@ -333,8 +333,8 @@ module PropRle_v2 =
         Prop.forAll arbPixels (propRunLengthSum_eq_inputLength impl)
         |@ "propRunLengthSum_eq_inputLength"
       let prop4 =
-        Prop.forAll arbPixelsPair (propStructurePreserving impl)
-        |@ "propStructurePreserving"
+        Prop.forAll arbPixelsPair (propConcat impl)
+        |@ "propConcat"
       prop1 .&. prop2 .&. prop3 .&. prop4
 
 open PropRle_v2
@@ -346,7 +346,7 @@ do
     let config = { Config.Default with MaxTest=10000}
     Check.One(config,prop)
     // Falsifiable, after 2 tests
-    // Label of failing property: propStructurePreserving
+    // Label of failing property: propConcat
 
 do
     let prop = propRle rle_recursive
@@ -408,14 +408,16 @@ do
 // ================================================
 
 do
+    /// a very simple RLE implementation
     let rle_allChars inputStr =
       inputStr
       |> Seq.toList
       |> List.map (fun ch -> (ch,1))
 
+    // make a property
     let prop = Prop.forAll arbPixels (propEncodeDecode rle_allChars)
 
-    // check it thoroughly
+    // and check it thoroughly
     let config = { Config.Default with MaxTest=10000}
     Check.One(config,prop)
     // Ok, passed 10000 tests.
@@ -542,7 +544,7 @@ do
 // ================================================
 
 let propAssociative (impl:RleImpl) (str1,str2,str3) =
-    let ( <+> ) = rleAdd
+    let ( <+> ) = rleConcat
 
     let rle1 = impl str1
     let rle2 = impl str2
@@ -573,7 +575,7 @@ do
 
 
 let propLeftZero (impl:RleImpl) str =
-    let ( <+> ) = rleAdd
+    let ( <+> ) = rleConcat
     let rleZero = []
 
     let rle = impl str
@@ -598,7 +600,7 @@ do
 
 
 let propRightZero (impl:RleImpl) str =
-    let ( <+> ) = rleAdd
+    let ( <+> ) = rleConcat
     let rleZero = []
 
     let rle = impl str
